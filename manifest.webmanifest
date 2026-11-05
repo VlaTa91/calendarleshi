@@ -1,0 +1,19 @@
+{
+  "name": "Календарь Лёши",
+  "short_name": "Смены Лёши",
+  "description": "Смены Лёши и поездки в Колпино",
+  "lang": "ru",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#10131c",
+  "theme_color": "#10131c",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
