@@ -95,6 +95,7 @@ main{padding:6px 5px 24px;max-width:690px}
 .danger-zone .notice{font-size:11px}
 .danger-zone .clear-actions{gap:6px;margin:8px 0}
 .danger-zone .clear-actions button{min-height:34px;font-size:12px}
+#status{position:fixed;bottom:15px;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100vw - 20px);z-index:100;background:#273c5c;border:1px solid #587aa6;box-shadow:0 4px 18px #0009;font-size:11px;padding:7px 10px;border-radius:7px;pointer-events:none}
 </style></head><body><main><header class="top"><h1>📅 Календарь Лёши</h1><div class="top-actions"><button id="quickSync" type="button" title="Синхронизировать с Google" aria-label="Синхронизировать">↕</button><button id="openSettings" type="button" aria-label="Настройки">⚙</button></div></header><div class="panel"><div class="nav"><button id="prev" aria-label="Предыдущий месяц">‹</button><strong id="month"></strong><button id="next" aria-label="Следующий месяц">›</button><div class="month-switch"><button type="button" data-months="1" aria-label="Показать один месяц">1</button><button type="button" data-months="2" aria-label="Показать два месяца">2</button><button type="button" data-months="3" aria-label="Показать три месяца">3</button></div></div><div class="quicktypes" id="quickTypes" role="group" aria-label="Тип смены"></div><div id="months"></div><div id="status" class="status" role="status" aria-live="polite"></div></div><div class="panel settings-panel"><details id="settings"><summary>⚙️ Настройки</summary><div class="settings-actions"><button id="quickMode" type="button">Режим: добавление</button></div><details class="danger-zone"><summary>🗑 Удаление записей</summary><p class="notice">Удаление требует подтверждения. В Google изменения применятся только после синхронизации.</p><div class="clear-actions"><button type="button" id="clearDay">Очистить день</button><button type="button" id="clearMonth">Очистить месяц</button></div></details><details class="daydetails"><summary id="chosenTitle">Записи выбранной даты</summary><div class="events" id="events"></div></details><div class="settings-google"><div class="settings-google-head"><b>Google Календарь</b><button id="connect" type="button">Войти в Google</button></div><div class="field"><label for="client">Google OAuth Client ID</label><input id="client" placeholder="...apps.googleusercontent.com" autocomplete="off"></div><div class="field"><label for="calendar">ID календаря</label><input id="calendar"></div><div class="field"><label for="startDay">Начало дневной смены</label><input id="startDay" type="time"></div><div class="field"><label for="startNight">Начало ночной смены</label><input id="startNight" type="time"></div><div class="field"><label for="kolpinoTime">Время поездки «Колпино» (необязательно)</label><input id="kolpinoTime" type="time"></div><label class="checkbox"><input id="kolpinoAllDay" type="checkbox"> «Колпино» — событие на весь день</label><div class="actions"><button id="settingsSave">Сохранить настройки</button></div><p class="notice">Google подключается отдельно. Изменения без синхронизации остаются на этом телефоне.</p><button id="logout" type="button" class="logout-small">Выйти из Google</button></div></details></div></main><script src="https://accounts.google.com/gsi/client" async defer></script><script>(()=>{'use strict';
 const CAL='';
 const DEFAULT={client:'',calendar:CAL,startDay:'07:00',startNight:'19:00',kolpinoTime:'10:00',kolpinoAllDay:true};
@@ -105,7 +106,8 @@ function localDate(d){return [d.getFullYear(),String(d.getMonth()+1).padStart(2,
 function addDays(date,days){const d=new Date(date+'T12:00:00');d.setDate(d.getDate()+days);return localDate(d)}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function type(id){return TYPES.find(t=>t.id===id)||TYPES[0]}
-function status(s){$('status').textContent=s;$('status').classList.toggle('has-message',!!s)}
+let statusTimer;
+function status(s){const el=$('status');clearTimeout(statusTimer);el.textContent=s;el.classList.toggle('has-message',!!s);if(s)statusTimer=setTimeout(()=>{el.textContent='';el.classList.remove('has-message')},3500)}
 function render(){const firstVisible=new Date(Math.floor(view/12),view%12,1);
 $('month').textContent=viewCount===1?firstVisible.toLocaleDateString('ru-RU',{month:'long',year:'numeric'}):firstVisible.toLocaleDateString('ru-RU',{month:'short',year:'numeric'})+' — '+new Date(Math.floor((view+viewCount-1)/12),(view+viewCount-1)%12,1).toLocaleDateString('ru-RU',{month:'short',year:'numeric'});
 $('chosenTitle').textContent='Дата: '+new Date(selectedDate+'T12:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
@@ -114,14 +116,14 @@ $('months').replaceChildren();
 for(let offset=0;offset<viewCount;offset++){
 const current=view+offset,year=Math.floor(current/12),month=current%12,first=new Date(year,month,1),count=new Date(year,month+1,0).getDate();
 const section=document.createElement('section');section.className='month-section';
-section.innerHTML='<div class="month-heading">'+escapeHtml(first.toLocaleDateString('ru-RU',{month:'long',year:'numeric'}))+'</div><div class="week"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div><div class="days"></div>';
+section.innerHTML=(viewCount>1?'<div class="month-heading">'+escapeHtml(first.toLocaleDateString('ru-RU',{month:'long',year:'numeric'}))+'</div>':'')+'<div class="week"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div><div class="days"></div>';
 const grid=section.querySelector('.days');
 const prefix=year+'-'+String(month+1).padStart(2,'0');
 const shifts=events.filter(e=>e.date.startsWith(prefix)&&type(e.type).hours>0);
 const normal=shifts.reduce((sum,e)=>sum+Math.min(8,type(e.type).hours),0);
 const extra=shifts.reduce((sum,e)=>sum+Math.max(0,type(e.type).hours-8),0);
-const heading=section.querySelector('.month-heading');
-heading.insertAdjacentHTML('afterend','<div class="month-stats"><span>Смен: <b>'+shifts.length+'</b></span><span>Обычные: <b>'+normal+' ч</b></span><span>Доп.: <b>'+extra+' ч</b></span><span>Всего: <b>'+(normal+extra)+' ч</b></span></div>');
+const heading=section.querySelector('.month-heading')||section.querySelector('.week');
+heading.insertAdjacentHTML(viewCount>1?'afterend':'beforebegin','<div class="month-stats"><span>Смен: <b>'+shifts.length+'</b></span><span>Обычные: <b>'+normal+' ч</b></span><span>Доп.: <b>'+extra+' ч</b></span><span>Всего: <b>'+(normal+extra)+' ч</b></span></div>');
 for(let i=0;i<(first.getDay()+6)%7;i++){grid.insertAdjacentHTML('beforeend','<div class="day empty"></div>')}
 for(let n=1;n<=count;n++){const date=`${year}-${String(month+1).padStart(2,'0')}-${String(n).padStart(2,'0')}`,matches=events.filter(e=>e.date===date),b=document.createElement('button');
 b.className='day'+(date===selectedDate?' selected':'')+(date===localDate(new Date())?' today':'');b.setAttribute('aria-label',date+(date===localDate(new Date())?' — сегодня':''));
