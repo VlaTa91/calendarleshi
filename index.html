@@ -96,6 +96,26 @@ main{padding:6px 5px 24px;max-width:690px}
 .danger-zone .clear-actions{gap:6px;margin:8px 0}
 .danger-zone .clear-actions button{min-height:34px;font-size:12px}
 #status{position:fixed;bottom:15px;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100vw - 20px);z-index:100;background:#273c5c;border:1px solid #587aa6;box-shadow:0 4px 18px #0009;font-size:11px;padding:7px 10px;border-radius:7px;pointer-events:none}
+
+.months-fit .day{height:var(--fit-cell,39px)!important;min-height:var(--fit-cell,39px)!important;max-height:var(--fit-cell,39px);padding:1px 0;overflow:hidden}
+.months-fit .days{gap:2px;grid-auto-rows:var(--fit-cell,39px)}
+.months-fit .month-section{margin:0;padding:0}
+.months-fit .month-section+.month-section{border-top:1px solid #35445c;margin-top:3px;padding-top:3px}
+.months-fit .month-heading{font-size:11px;line-height:13px;margin:1px 0}
+.months-fit .month-stats{margin:1px 0 3px;gap:2px}
+.months-fit .month-stats span{font-size:9px;padding:1px}
+.months-fit .month-stats b{font-size:10px}
+.months-fit .week{margin:0 0 2px}
+.months-fit .week span{font-size:9px;line-height:12px}
+.months-fit .num{font-size:clamp(9px,2.8vw,12px);line-height:13px}
+.months-fit .dot{font-size:7px;line-height:9px;padding:0 1px}
+.months-fit.micro .num{font-size:10px;line-height:11px}
+.months-fit.micro .dots{gap:0}
+.months-fit.micro .dot{font-size:6px;line-height:7px;padding:0 1px}
+.months-fit.tiny .num{font-size:9px;line-height:10px}
+.months-fit.tiny .dot{font-size:0;width:5px;height:5px;border-radius:50%;margin:0 1px}
+.months-fit.tiny .dots{gap:0}
+.months-fit .day.today{border-width:1px}
 </style></head><body><main><header class="top"><h1>📅 Календарь Лёши</h1><div class="top-actions"><button id="quickSync" type="button" title="Синхронизировать с Google" aria-label="Синхронизировать">↕</button><button id="openSettings" type="button" aria-label="Настройки">⚙</button></div></header><div class="panel"><div class="nav"><button id="prev" aria-label="Предыдущий месяц">‹</button><strong id="month"></strong><button id="next" aria-label="Следующий месяц">›</button><div class="month-switch"><button type="button" data-months="1" aria-label="Показать один месяц">1</button><button type="button" data-months="2" aria-label="Показать два месяца">2</button><button type="button" data-months="3" aria-label="Показать три месяца">3</button></div></div><div class="quicktypes" id="quickTypes" role="group" aria-label="Тип смены"></div><div id="months"></div><div id="status" class="status" role="status" aria-live="polite"></div></div><div class="panel settings-panel"><details id="settings"><summary>⚙️ Настройки</summary><div class="settings-actions"><button id="quickMode" type="button">Режим: добавление</button></div><details class="danger-zone"><summary>🗑 Удаление записей</summary><p class="notice">Удаление требует подтверждения. В Google изменения применятся только после синхронизации.</p><div class="clear-actions"><button type="button" id="clearDay">Очистить день</button><button type="button" id="clearMonth">Очистить месяц</button></div></details><details class="daydetails"><summary id="chosenTitle">Записи выбранной даты</summary><div class="events" id="events"></div></details><div class="settings-google"><div class="settings-google-head"><b>Google Календарь</b><button id="connect" type="button">Войти в Google</button></div><div class="field"><label for="client">Google OAuth Client ID</label><input id="client" placeholder="...apps.googleusercontent.com" autocomplete="off"></div><div class="field"><label for="calendar">ID календаря</label><input id="calendar"></div><div class="field"><label for="startDay">Начало дневной смены</label><input id="startDay" type="time"></div><div class="field"><label for="startNight">Начало ночной смены</label><input id="startNight" type="time"></div><div class="field"><label for="kolpinoTime">Время поездки «Колпино» (необязательно)</label><input id="kolpinoTime" type="time"></div><label class="checkbox"><input id="kolpinoAllDay" type="checkbox"> «Колпино» — событие на весь день</label><div class="actions"><button id="settingsSave">Сохранить настройки</button></div><p class="notice">Google подключается отдельно. Изменения без синхронизации остаются на этом телефоне.</p><button id="logout" type="button" class="logout-small">Выйти из Google</button></div></details></div></main><script src="https://accounts.google.com/gsi/client" async defer></script><script>(()=>{'use strict';
 const CAL='';
 const DEFAULT={client:'',calendar:CAL,startDay:'07:00',startNight:'19:00',kolpinoTime:'10:00',kolpinoAllDay:true};
@@ -108,11 +128,24 @@ function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':
 function type(id){return TYPES.find(t=>t.id===id)||TYPES[0]}
 let statusTimer;
 function status(s){const el=$('status');clearTimeout(statusTimer);el.textContent=s;el.classList.toggle('has-message',!!s);if(s)statusTimer=setTimeout(()=>{el.textContent='';el.classList.remove('has-message')},3500)}
+function fitCalendar(){
+const container=$('months'),top=container.getBoundingClientRect().top;
+const available=Math.max(200,window.innerHeight-top-12);
+const sections=[...container.querySelectorAll('.month-section')];
+const rows=sections.reduce((total,section)=>total+Math.ceil(section.querySelector('.days').children.length/7),0);
+const other=sections.reduce((total,section)=>total+section.querySelector('.week').offsetHeight+(section.querySelector('.month-heading')?.offsetHeight||0)+(section.querySelector('.month-stats')?.offsetHeight||0)+9,0);
+const gap=2;
+const height=Math.max(12,Math.min(43,Math.floor((available-other-rows*gap-5)/rows)));
+container.style.setProperty('--fit-cell',height+'px');
+container.classList.toggle('micro',height<23);
+container.classList.toggle('tiny',height<17);
+}
+window.addEventListener('resize',()=>requestAnimationFrame(fitCalendar));
 function render(){const firstVisible=new Date(Math.floor(view/12),view%12,1);
 $('month').textContent=viewCount===1?firstVisible.toLocaleDateString('ru-RU',{month:'long',year:'numeric'}):firstVisible.toLocaleDateString('ru-RU',{month:'short',year:'numeric'})+' — '+new Date(Math.floor((view+viewCount-1)/12),(view+viewCount-1)%12,1).toLocaleDateString('ru-RU',{month:'short',year:'numeric'});
 $('chosenTitle').textContent='Дата: '+new Date(selectedDate+'T12:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
 document.querySelectorAll('[data-months]').forEach(b=>{b.classList.toggle('active',Number(b.dataset.months)===viewCount);b.setAttribute('aria-pressed',String(Number(b.dataset.months)===viewCount))});
-$('months').replaceChildren();
+$('months').replaceChildren();$('months').className='months-fit count-'+viewCount;
 for(let offset=0;offset<viewCount;offset++){
 const current=view+offset,year=Math.floor(current/12),month=current%12,first=new Date(year,month,1),count=new Date(year,month+1,0).getDate();
 const section=document.createElement('section');section.className='month-section';
@@ -130,6 +163,7 @@ b.className='day'+(date===selectedDate?' selected':'')+(date===localDate(new Dat
 b.innerHTML=`<span class="num">${n}</span><span class="dots">${matches.slice(0,3).map(e=>`<span class="dot" style="background:${type(e.type).color}">${type(e.type).short}</span>`).join('')}</span>`;
 b.onclick=()=>{selectedDate=date;if(quickMode){quickAdd(date)}else{render()}};if(quickMode)b.classList.add('rapid');grid.appendChild(b)}
 $('months').appendChild(section)}
+requestAnimationFrame(fitCalendar);
 $('quickTypes').innerHTML='';for(const t of TYPES){const b=document.createElement('button');b.type='button';b.textContent=t.short;b.title=t.name;b.setAttribute('aria-label',t.name);b.style.setProperty('--type-color',t.color);b.className=selectedType===t.id?'active':'';b.onclick=()=>{selectedType=t.id;render()};$('quickTypes').appendChild(b)}$('quickMode').textContent=quickMode?'Режим: добавление':'Режим: просмотр';$('quickSync').textContent='↕'+(events.filter(e=>!e.synced).length?'•':'');$('quickSync').title='Синхронизация ↕, ожидают: '+(events.filter(e=>!e.synced).length+pendingDeletes.length);const todayEvents=events.filter(e=>e.date===selectedDate);$('events').innerHTML=todayEvents.length?todayEvents.map(e=>`<div class="event"><span><span style="color:${type(e.type).color}">●</span> ${escapeHtml(type(e.type).name)} <small>${e.synced?'☁️':'● локально'}</small></span><button data-remove="${escapeHtml(e.key)}" aria-label="Удалить">✕</button></div>`).join(''):'<small>На эту дату записей нет.</small>';document.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>removeEvent(b.dataset.remove));}
 function readConfig(){for(const k of ['client','calendar','startDay','startNight','kolpinoTime'])config[k]=$(k).value.trim();config.kolpinoAllDay=$('kolpinoAllDay').checked;store('lesha-settings-v1',config);status('Настройки сохранены.')}
 function fillConfig(){for(const k of ['client','calendar','startDay','startNight','kolpinoTime'])$(k).value=config[k];$('kolpinoAllDay').checked=config.kolpinoAllDay}
